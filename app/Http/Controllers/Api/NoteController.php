@@ -46,13 +46,59 @@ class NoteController extends Controller
         return response()->json($response, 200);
     }
 
-    public function xml()
+    public function xml(Request $request)
     {
+        $request->validate([
+            'company' => 'required|array',
+            'company.address' => 'required|array',
+            'client' => 'required|array',
+            'details' => 'required|array',
+            'details.*' => 'required|array'
+        ]);
 
+        $data = $request->all();
+
+        $company = Company::where('user_id', auth()->id())
+        ->where('ruc', $data['company']['ruc'])
+        ->firstOrFail();
+
+        $this->setTotales($data);
+        $this->setLegends($data);
+
+        $sunat = new SunatService();
+
+        $see = $sunat->getSee($company);
+        $note = $sunat->getNote($data);
+
+        $response['xml'] = $see->getXmlSigned($note);
+        $response['hash'] = (new XmlUtils())->getHashSign($response['xml']);
+
+        return response()->json($response, 200);
     }
 
-    public function pdf()
+    public function pdf(Request $request)
     {
+        $request->validate([
+            'company' => 'required|array',
+            'company.address' => 'required|array',
+            'client' => 'required|array',
+            'details' => 'required|array',
+            'details.*' => 'required|array'
+        ]);
 
+        $data = $request->all();
+
+        $company = Company::where('user_id', auth()->id())
+        ->where('ruc', $data['company']['ruc'])
+        ->firstOrFail();
+
+        $this->setTotales($data);
+        $this->setLegends($data);
+
+        $sunat = new SunatService();
+        
+        $note = $sunat->getNote($data);
+        $sunat->generatePdfReport($note);
+        return $sunat->getHtmlReport($note);
     }
 }
